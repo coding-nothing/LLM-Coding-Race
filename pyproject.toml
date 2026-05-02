@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-coding-benchmark"
+version = "0.1.0"
+description = "评测 LLM 编码能力的 harness（Project B）与任务草稿生成器（Project A）"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { file = "LICENSE" }
+dependencies = [
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["harness*", "taskprep*"]
+exclude = ["tests*", "tasks*", "repos*", "outputs*", "reports*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# 默认只跑 unit + integration + e2e；smoke 必须显式选中
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--ignore=tests/smoke",
+    "--ignore=tests/fixtures",
+    "--ignore=tests/mocks",
+    # Python 3.14 + Windows + pytest fd-capture 与 subprocess.run 句柄继承冲突，
+    # 退回 sys 级 capture（仍可拦截 print，但不动 fd 0/1/2）。
+    "--capture=sys",
+]
+markers = [
+    "unit: 单元测试（纯函数 / mock SDK，无外部依赖）",
+    "integration: 集成测试（真实 git 子进程 / 文件 IO / worktree）",
+    "e2e: 端到端测试（fetch→run→grade→report 全流程，mock LLM）",
+    "smoke: 真实 API 烟测（需要环境变量；默认套件不跑）",
+    "slow: 执行较慢（>2s），可用 `-m 'not slow'` 跳过",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:anthropic.*",
+    "ignore::DeprecationWarning:openai.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PL"]
+ignore = [
+    "PLR0913",
+    "PLR2004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+exclude = ["tests/fixtures/.*"]

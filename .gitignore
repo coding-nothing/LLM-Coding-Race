@@ -1,0 +1,25 @@
+# Secrets
+.env
+
+# Runtime artefacts
+repos/
+outputs/
+reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# IDE
+.idea/
+.vscode/
+
+# LLM
+references/
+skills/
+.claude/
+CLAUDE.md

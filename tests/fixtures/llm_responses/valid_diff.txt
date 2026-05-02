@@ -1,0 +1,12 @@
+这是修复 `add` 函数的 patch：
+
+```diff
+--- a/src/a.py
++++ b/src/a.py
+@@ -1,2 +1,2 @@
+ def add(a, b):
+-    return a - b  # bug
++    return a + b
+```
+
+完成。

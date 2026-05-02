@@ -1,0 +1,10 @@
+下面是修复后的完整文件内容：
+
+## File: src/a.py
+
+```python
+def add(a, b):
+    return a + b
+```
+
+修复完毕。

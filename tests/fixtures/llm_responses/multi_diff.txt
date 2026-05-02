@@ -1,0 +1,23 @@
+先尝试方案 A：
+
+```diff
+--- a/src/a.py
++++ b/src/a.py
+@@ -1,2 +1,2 @@
+ def add(a, b):
+-    return a - b
++    return a * b
+```
+
+不对，应该是这样：
+
+```diff
+--- a/src/a.py
++++ b/src/a.py
+@@ -1,2 +1,2 @@
+ def add(a, b):
+-    return a - b  # bug
++    return a + b
+```
+
+最终方案以最后一个为准。

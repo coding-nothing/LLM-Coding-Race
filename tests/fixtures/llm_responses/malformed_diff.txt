@@ -1,0 +1,9 @@
+下面是 diff：
+
+```diff
+this is not actually a valid diff format
+just some random text
+without proper headers or hunks
+```
+
+希望有用。
