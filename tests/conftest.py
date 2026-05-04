@@ -299,3 +299,161 @@ def make_openai_completion(text: str, *, prompt_tokens: int = 100,
     usage.prompt_tokens_details = MagicMock(cached_tokens=0)
     completion.usage = usage
     return completion
+
+
+# ──────────────────────────────────────────────
+# Phase 2 taskprep 专用 fixture（追加，不动 Phase 1）
+# ──────────────────────────────────────────────
+
+
+@pytest.fixture
+def make_repo_with_merge(tmp_path: Path) -> Callable[..., FixtureRepo]:
+    """在 make_repo 基础上创建 feature 分支 + merge commit，用于 TC-76。
+
+    返回的 FixtureRepo.fix_commit 是 merge commit（2 个父 commit）。
+    """
+
+    def _make(name: str = "fixture_repo_merge") -> FixtureRepo:
+        repo = tmp_path / name
+        repo.mkdir()
+        _git_init(repo)
+
+        # init commit
+        (repo / "src").mkdir()
+        (repo / "src" / "a.py").write_text(
+            "def add(a, b):\n    return a - b  # bug\n",
+            encoding="utf-8",
+        )
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "init")
+        init_commit = _git(repo, "rev-parse", "HEAD")
+
+        # 记住初始分支名（不同 git 版本可能用 master 或 main）
+        init_branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD")
+
+        # feature 分支
+        _git(repo, "checkout", "-q", "-b", "feature/fix")
+        (repo / "src" / "a.py").write_text(
+            "def add(a, b):\n    return a + b\n",
+            encoding="utf-8",
+        )
+        (repo / "tests").mkdir()
+        (repo / "tests" / "test_a.py").write_text(
+            "from src.a import add\n\ndef test_add():\n    assert add(1, 2) == 3\n",
+            encoding="utf-8",
+        )
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "fix bug + add test")
+
+        # 切回初始分支并 merge feature（no-ff 保证 merge commit）
+        _git(repo, "checkout", "-q", init_branch)
+        _git(repo, "merge", "--no-ff", "-q", "-m", "merge feature/fix", "feature/fix")
+        merge_commit = _git(repo, "rev-parse", "HEAD")
+
+        # 回到 init_commit
+        _git(repo, "checkout", "-q", init_commit)
+
+        return FixtureRepo(path=repo, init_commit=init_commit, fix_commit=merge_commit)
+
+    return _make
+
+
+@pytest.fixture
+def make_repo_with_manifest(tmp_path: Path) -> Callable[..., FixtureRepo]:
+    """make_repo + 写入 package.json 或 pyproject.toml，用于 TC-77/78/79。
+
+    manifest 参数：`"package.json"` → vitest；`"pyproject.toml"` → pytest。
+    """
+
+    def _make(manifest: str = "package.json", name: str = "fixture_repo_manifest") -> FixtureRepo:
+        repo = tmp_path / name
+        repo.mkdir()
+        _git_init(repo)
+
+        (repo / "src").mkdir()
+        (repo / "src" / "a.py").write_text(
+            "def add(a, b):\n    return a - b  # bug\n",
+            encoding="utf-8",
+        )
+
+        if manifest == "package.json":
+            (repo / "package.json").write_text(
+                '{"devDependencies": {"vitest": "^1.0.0"}}\n',
+                encoding="utf-8",
+            )
+        elif manifest == "pyproject.toml":
+            (repo / "pyproject.toml").write_text(
+                "[tool.pytest.ini_options]\nminversion = \"8.0\"\n",
+                encoding="utf-8",
+            )
+
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "init with manifest")
+        init_commit = _git(repo, "rev-parse", "HEAD")
+
+        # fix commit
+        (repo / "src" / "a.py").write_text(
+            "def add(a, b):\n    return a + b\n",
+            encoding="utf-8",
+        )
+        (repo / "tests").mkdir()
+        (repo / "tests" / "test_a.py").write_text(
+            "from src.a import add\n\ndef test_add():\n    assert add(1, 2) == 3\n",
+            encoding="utf-8",
+        )
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "fix bug + add test")
+        fix_commit = _git(repo, "rev-parse", "HEAD")
+
+        _git(repo, "checkout", "-q", init_commit)
+
+        return FixtureRepo(path=repo, init_commit=init_commit, fix_commit=fix_commit)
+
+    return _make
+
+
+@pytest.fixture
+def debug_doc_sample(tmp_path: Path) -> Path:
+    """生成示例 debug 文档（含现象/复现/错误/约束 4 段），用于 TC-69 等。"""
+    doc = tmp_path / "debug-doc.md"
+    doc.write_text(
+        "# 调试文档：add 函数错误\n\n"
+        "## 现象\n\n"
+        "调用 `add(1, 2)` 返回 `-1` 而非 `3`。\n\n"
+        "## 复现步骤\n\n"
+        "1. 运行 `python -c \"from src.a import add; print(add(1, 2))\"`\n"
+        "2. 观察输出为 `-1`\n\n"
+        "## 错误信息\n\n"
+        "无报错，逻辑错误。\n\n"
+        "## 约束\n\n"
+        "- 不修改函数签名\n"
+        "- 使用 Python 3.11+ 语法\n",
+        encoding="utf-8",
+    )
+    return doc
+
+
+@pytest.fixture
+def mock_taskprep_anthropic(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Patch `taskprep.llm.anthropic.Anthropic`，返回 client mock。
+
+    与 Phase 1 的 `mock_anthropic`（patch harness.runner.*）独立，不可合并。
+    """
+    client = MagicMock(name="TaskprepAnthropicClient")
+    factory = MagicMock(return_value=client, name="TaskprepAnthropicFactory")
+    monkeypatch.setattr("taskprep.llm.anthropic.Anthropic", factory, raising=False)
+    client._factory = factory
+    return client
+
+
+@pytest.fixture
+def mock_taskprep_openai(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Patch `taskprep.llm.openai.OpenAI`，返回 client mock。
+
+    与 Phase 1 的 `mock_openai`（patch harness.runner.*）独立，不可合并。
+    """
+    client = MagicMock(name="TaskprepOpenAIClient")
+    factory = MagicMock(return_value=client, name="TaskprepOpenAIFactory")
+    monkeypatch.setattr("taskprep.llm.openai.OpenAI", factory, raising=False)
+    client._factory = factory
+    return client

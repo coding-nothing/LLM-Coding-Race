@@ -1,0 +1,8 @@
+reference:
+src/b.ts
+src/utils/helpers.ts
+
+# --- LLM Recommendation Notes (please review) ---
+# src/b.ts: 与 src/a.py 同目录，是最近的 TypeScript 参考文件，展示了项目的导出风格
+# src/utils/helpers.ts: 包含项目的通用工具函数模式，可作为测试风格参考
+# 建议审查以上推荐是否与本次 bug fix 相关

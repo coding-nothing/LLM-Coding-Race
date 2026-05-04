@@ -1,0 +1,7 @@
+--- a/tests/test_a.py
++++ b/tests/test_a.py
+@@ -0,0 +1,4 @@
++from src.a import add
++
++def test_add():
++    assert add(1, 2) == 3

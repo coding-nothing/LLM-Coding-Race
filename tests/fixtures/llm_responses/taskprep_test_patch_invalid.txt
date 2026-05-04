@@ -1,0 +1,5 @@
+Here's a test you should write for the add function:
+
+First, create a file called test_a.py in the tests directory. Then import the add function from src.a. Write a simple test case that calls add(1, 2) and checks that it equals 3. You might also want to add edge cases like negative numbers and zero.
+
+The test should use pytest style assertions since the project uses pytest.
